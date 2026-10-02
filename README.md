@@ -16,23 +16,3 @@ The client accesses a private `.test` domain:
 
 ```text
 app.noaa.test
-
-
-
-Client
-   │
-   │ DNS
-   ▼
-Private DNS Server
-   │
-   │ IP address of Edge
-   ▼
-nginx Edge / Reverse Proxy
-   │
-   │ HTTPS / TLS
-   ▼
-Load Balancer
-   │
-   ├──────────────► Backend A :3001
-   │
-   └──────────────► Backend B :3002
