@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Environment variables / secrets
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# Logs
+*.log
+
+# Private keys and certificates
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Temporary files
+*.tmp
+*.swp
