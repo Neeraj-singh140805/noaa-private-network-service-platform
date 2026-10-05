@@ -1559,11 +1559,3 @@ The project demonstrates how these networking components work together
 as one complete private network service platform.
 
 ---
-
-# 👥 Team NOAA
-
-**Computer Networks Course Project**
-
-**Phase 1 — Build and Observe**
-
----
