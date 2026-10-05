@@ -353,6 +353,16 @@ evidence/phase1/01-lan/
 └── 03-lan-topology/
 ```
 
+## Lan Topology Diagram
+
+The complete Lan Topology is documented in:
+
+```text
+evidence/01-lan/03-lan-topology/lan_topology_diagram.jpeg
+```
+
+![Lan Topology](evidence/phase1/01-lan/03-lan-topology/lan_topology_diagram.jpeg)git add
+
 ---
 
 # 02 — Private DNS
