@@ -1,0 +1,10 @@
+
+; <<>> DiG 9.10.6 <<>> @10.7.11.144 app.noaa.test +noall +answer
+; (1 server found)
+;; global options: +cmd
+app.noaa.test.		0	IN	A	10.7.27.60
+
+; <<>> DiG 9.10.6 <<>> @10.7.11.144 api.noaa.test +noall +answer
+; (1 server found)
+;; global options: +cmd
+api.noaa.test.		0	IN	A	10.7.27.60
