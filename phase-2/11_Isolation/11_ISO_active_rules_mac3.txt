@@ -1,0 +1,11 @@
+Ayushs-MacBook-Pro-5.local
+--- noaa_pf.conf ---
+edge = "{ 10.7.27.60, 10.7.11.131 }"
+pass quick on lo0 all
+pass in quick proto tcp from $edge to any port 3001
+block drop in quick proto tcp from any to any port 3001
+--- active pfctl -sr ---
+pass quick on lo0 all flags S/SA keep state
+pass in quick inet proto tcp from 10.7.27.60 to any port = 3001 flags S/SA keep state
+pass in quick inet proto tcp from 10.7.11.131 to any port = 3001 flags S/SA keep state
+block drop in quick proto tcp from any to any port = 3001
