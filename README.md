@@ -181,7 +181,7 @@ The project topology is documented in:
 architecture/network-topology.png
 ```
 
-![Network Topology](architecture/network-topology.png)
+![Network Topology](phase-1/architecture/network-topology.png)
 
 ### Logical topology
 
@@ -219,7 +219,7 @@ The complete request flow is documented in:
 architecture/request-flow.png
 ```
 
-![Request Flow](architecture/request-flow.png)
+![Request Flow](phase-1/architecture/request-flow.png)
 
 The client request follows this sequence:
 
@@ -374,7 +374,7 @@ The complete Lan Topology is documented in:
 evidence/01-lan/03-lan-topology/lan_topology_diagram.jpeg
 ```
 
-![Lan Topology](evidence/phase1/01-lan/03-lan-topology/lan_topology_diagram.jpeg)git add
+![Lan Topology](phase-1/evidence/phase1/01-lan/03-lan-topology/lan_topology_diagram.jpeg)git add
 
 ---
 
@@ -1647,6 +1647,9 @@ DNS answers can change during the TTL and migration demonstrations. Always
 check the live DNS answer before assuming which edge is currently active.
 
 ## Phase 2 Architecture
+
+![Architecture Diagram](phase-2/architecture/Phase2_Architecture.png)
+
 
 The following diagram shows the normal request path and the redundant
 components introduced in Phase 2. The standby edge is shown separately
