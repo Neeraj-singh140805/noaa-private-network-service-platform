@@ -1,0 +1,6 @@
+Ayushs-MacBook-Pro-5.local
+--- restored pfctl -sr ---
+scrub-anchor "com.apple/*" all fragment reassemble
+anchor "com.apple/*" all
+--- diff with backup ---
+MATCHES BACKUP
