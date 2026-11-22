@@ -48,7 +48,7 @@ To restrict network access to application backends, we implemented Packet Filter
 To protect the application from backend failures, we configured upstream failover on the Mac 2 nginx edge. In `nginx.conf`, we defined our upstream with `max_fails=1 fail_timeout=10s` and added proxy directives `proxy_connect_timeout 2s`, `proxy_next_upstream error timeout http_502 http_503 http_504`, and `proxy_next_upstream_tries 2`. In normal operation, requests alternated evenly between Backend A (10.7.11.131:3001) and Backend B (10.7.11.144:3002). When we stopped Backend A, client requests still succeeded with HTTP 200. The first request after the failure took about two seconds while nginx encountered a connection refusal, marked Backend A inactive, and retried the request against Backend B. In the nginx access log, we verified this retry was recorded as `upstream_status=502, 200`. We learned that reverse proxies can absorb backend transport failures by retrying alternate servers, trading a minor initial latency penalty for uninterrupted application service. *(Owner: Neeraj)*
 
 ### E: Controlled Edge Migration Using DNS
-To maintain service availability during edge proxy maintenance, we executed a controlled edge migration using a standby nginx instance on Mac 3 (10.7.11.131:8443) configured with the diagnostic header `add_header X-Edge standby always`. We ran both edges concurrently during an overlap window, confirming TLS and proxy behavior on Mac 3 before updating the DNS A record on Mac 1 from 10.7.27.60 to 10.7.11.131. During the 30-second TTL window, existing clients continued reaching Mac 2 while new resolutions shifted to Mac 3, as shown by the `x-edge: standby` header in curl responses. After client caches expired, we safely stopped nginx on Mac 2 with no dropped connections. We also confirmed rollback by switching the DNS record back. We learned that running edges concurrently during a planned migration prevents outages, though traffic cutover is not instantaneous and depends entirely on DNS client cache expiration. *(Owner: Ayush & Neeraj)*
+To maintain service availability during edge proxy maintenance, we executed a controlled edge migration using a standby nginx instance on Mac 3 (10.7.11.131:8443) configured with the diagnostic header `add_header X-Edge standby always`. We ran both edges concurrently during an overlap window, confirming TLS and proxy behavior on Mac 3 before updating the DNS A record on Mac 1 from 10.7.27.60 to 10.7.11.131. During the 30-second TTL window, existing clients continued reaching Mac 2 while new resolutions shifted to Mac 3, as shown by the `x-edge: standby` header in curl responses. After client caches expired, the service continued to answer after we stopped nginx on Mac 2. We also confirmed rollback by switching the DNS record back. We learned that running edges concurrently during a planned migration prevents outages, though traffic cutover is not instantaneous and depends entirely on DNS client cache expiration. *(Owner: Ayush & Neeraj)*
 
 ### F: Troubleshooting Challenge
 To build practical diagnostic skills, we conducted troubleshooting drills against injected faults using our step-by-step methodology and `diagnose.sh` script. The process followed five sequential steps: checking basic connectivity, DNS resolution, TCP port reachability, TLS certificates, and HTTP responses. In Drill 1, primary DNS on Mac 1 was stopped. Running `diagnose.sh` failed at Step 1 (`DNS FAILED: no answer`), and `dig @10.7.5.107 app.noaa.test` timed out. Restarting dnsmasq on Mac 1 immediately restored name resolution. In Drill 2, nginx on Mac 2 was stopped. The script passed DNS resolution but stopped at Step 2 (`TCP FAILED: port closed, firewall or host down`), and `nc -vz -G 3 10.7.27.60 8443` was refused. Restarting nginx on Mac 2 restored TCP handshakes and HTTP 200 responses. We learned that testing network layers sequentially pinpoints the exact failing boundary, preventing guesswork and unnecessary configuration changes. *(Owner: Om)*
@@ -76,7 +76,7 @@ To build practical diagnostic skills, we conducted troubleshooting drills agains
 ### A. The Five-Step Diagnostic Methodology
 To identify network failures efficiently without making random configuration changes, we followed a five-step diagnostic routine implemented in `diagnose.sh`:
 
-1. **Step 1: Basics / LAN Connectivity:** Check the active interface IP (`ipconfig getifaddr en0`) and verify local link reachability using `ping`. This confirms physical, data-link, and local IP routing functions.
+1. **Step 1: Basics / LAN Connectivity:** Check the active interface IP (`ipconfig getifaddr en0`) and verify local link reachability using `ping`. This confirms the Mac has a valid IP and can reach other hosts on the LAN.
 2. **Step 2: DNS Resolution:** Verify hostname lookup for `app.noaa.test` using `dig +time=2 +tries=1 +noall +answer $NAME` and check `/etc/hosts` for hardcoded overrides. This isolates name resolution from service reachability.
 3. **Step 3: TCP Port Reachability:** Test transport-layer connection to port 8443 using `nc -vz -G 3 $IP $PORT`. This confirms that routing works, firewalls allow the port, and a listening socket completes the TCP three-way handshake.
 4. **Step 4: TLS Verification:** Check the SSL/TLS handshake, private CA certificate trust, validity dates, and subject names using `curl -sv --max-time 5 -o /dev/null https://$NAME:$PORT/`. This tests transport encryption without application logic.
@@ -99,23 +99,23 @@ To identify network failures efficiently without making random configuration cha
 #### Drill 1: Primary DNS Service Outage
 - **Fault Injected:** The primary DNS service (`dnsmasq`) was stopped on Mac 1 (`10.7.5.107`).
 - **Commands Executed in Order:**
-  1. `./diagnose.sh app.noaa.test 8443` $\rightarrow$ Halted at Step 1 with `DNS FAILED: no answer`.
+  1. `bash ~/diagnose.sh app.noaa.test 8443` $\rightarrow$ Halted at Step 1 with `DNS FAILED: no answer`.
   2. `dig @10.7.5.107 app.noaa.test` $\rightarrow$ Query timed out with no answer returned.
   3. `dig @10.7.11.144 app.noaa.test` $\rightarrow$ Returned `10.7.27.60`, confirming the backup DNS resolver was functional.
   4. Checked Mac 1 locally $\rightarrow$ Confirmed `dnsmasq` was not running.
 - **Failing Boundary:** Application Layer (DNS / UDP port 53).
 - **Root Cause:** The `dnsmasq` process on Mac 1 was stopped, so port 53 was not responding.
-- **Fix Applied & Verification:** Restarted `dnsmasq` on Mac 1 (`sudo brew services restart dnsmasq`). Tested `dig @10.7.5.107 app.noaa.test` directly, which returned `10.7.27.60`. Re-ran `./diagnose.sh`, passing all five checks successfully (`14_drill1_application_restored.png`).
+- **Fix Applied & Verification:** Restarted `dnsmasq` on Mac 1 (`sudo brew services restart dnsmasq`). Tested `dig @10.7.5.107 app.noaa.test` directly, which returned `10.7.27.60`. Re-ran `bash ~/diagnose.sh`, passing all five checks successfully (`14_drill1_application_restored.png`).
 
 #### Drill 2: Active Edge Reverse Proxy Outage
 - **Fault Injected:** The `nginx` edge reverse proxy service was stopped on Mac 2 (`10.7.27.60`).
 - **Commands Executed in Order:**
-  1. `./diagnose.sh app.noaa.test 8443` $\rightarrow$ Passed Step 1 (DNS resolved to `10.7.27.60`), but halted at Step 2 with `TCP FAILED: port closed, firewall or host down`.
+  1. `bash ~/diagnose.sh app.noaa.test 8443` $\rightarrow$ Passed Step 1 (DNS resolved to `10.7.27.60`), but halted at Step 2 with `TCP FAILED: port closed, firewall or host down`.
   2. `nc -vz -G 3 10.7.27.60 8443` $\rightarrow$ Connection refused immediately.
   3. Checked Mac 2 locally $\rightarrow$ Confirmed no active Nginx processes were listening on port 8443.
 - **Failing Boundary:** Transport Layer (TCP port 8443 handshake).
 - **Root Cause:** Nginx was stopped, causing the operating system kernel to reject incoming TCP SYN packets with RST packets.
-- **Fix Applied & Verification:** Checked configuration with `sudo nginx -t` (syntax ok), then started Nginx with `sudo nginx`. Tested port connectivity with `nc -vz -G 3 10.7.27.60 8443` (succeeded). Ran `./diagnose.sh`, verifying complete TLS negotiation and HTTP 200 OK application responses (`14_drill2_application_restored.png`).
+- **Fix Applied & Verification:** Checked configuration with `sudo nginx -t` (syntax ok), then started Nginx with `sudo nginx`. Tested port connectivity with `nc -vz -G 3 10.7.27.60 8443` (succeeded). Ran `bash ~/diagnose.sh`, verifying complete TLS negotiation and HTTP 200 OK application responses (`14_drill2_application_restored.png`).
 
 ---
 
